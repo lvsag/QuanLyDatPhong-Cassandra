@@ -27,7 +27,6 @@ def print_db_samples():
     cluster.shutdown()
 
 
-
 def main():
     print("\n===== TEST PHẦN 1 - CASSANDRA INFRA =====\n")
 
@@ -104,6 +103,69 @@ def main():
     c = customer_repo.get_by_email("nguyenvana@gmail.com")
     if c:
         print(f"   Tìm thấy: {c['full_name']} - {c['customer_id']}")
+
+    print("\n\n===== TEST PHẦN 2 - CORE BUSINESS LOGIC =====\n")
+
+    # 1. Test Kiểm tra phòng trống (Check Availability)
+    print("🔍 1. Kiểm tra ngày trống:")
+    is_available_same_day = booking_repo.check_availability(room_id, check_in)
+    print(f"   - Ngày {check_in} (đã đặt): {'Trống' if is_available_same_day else '❌ Đã có người đặt'}")
+    
+    future_date = date.today() + timedelta(days=10)
+    is_available_future = booking_repo.check_availability(room_id, future_date)
+    print(f"   - Ngày {future_date} (tương lai): {'✅ Phòng trống' if is_available_future else 'Đã có người đặt'}")
+
+    # 2. Test Đổi trạng thái Booking (Check-in / Check-out)
+    print("\n🔑 2. Cập nhật luồng Check-in & Check-out:")
+    _, msg_checkin = booking_repo.update_booking_status(room_id, check_in, "CHECKED_IN")
+    print(f"   - Thao tác Check-in: {msg_checkin}")
+
+    _, msg_checkout = booking_repo.update_booking_status(room_id, check_in, "CHECKED_OUT")
+    print(f"   - Thao tác Check-out: {msg_checkout}")
+
+    # 3. Test Tạo phòng mới & Cập nhật trạng thái phòng (CRUD Room)
+    print("\n🛠️ 3. Quản lý trạng thái phòng (Room CRUD):")
+    room_id_2 = room_repo.create(
+        hotel_id=hotel_id,
+        room_number="102",
+        room_type="VIP Suite",
+        price=300.0
+    )
+    print(f"   - Tạo phòng mới 102: {room_id_2}")
+    
+    if hasattr(room_repo, 'update_room_status'):
+        room_repo.update_room_status(hotel_id, room_id_2, "MAINTENANCE")
+        print("   - Đổi trạng thái phòng 102 sang: MAINTENANCE (Bảo trì)")
+
+    # 4. Test Hủy phòng (Cancel Booking)
+    print("\n❌ 4. Test Luồng Hủy Booking:")
+    check_in_new = date.today() + timedelta(days=5)
+    check_out_new = date.today() + timedelta(days=7)
+
+    # Đặt phòng mới để test hủy
+    _, b_id_cancel, _ = booking_repo.create_booking(
+        room_id=room_id_2,
+        customer_id=customer_id,
+        hotel_id=hotel_id,
+        check_in_date=check_in_new,
+        check_out_date=check_out_new
+    )
+    print(f"   - Đã tạo đơn mới để test hủy (ID: {b_id_cancel})")
+
+    # Thực hiện hủy
+    _, msg_cancel = booking_repo.cancel_booking(
+        room_id=room_id_2,
+        check_in_date=check_in_new,
+        booking_id=b_id_cancel,
+        customer_id=customer_id,
+        hotel_id=hotel_id
+    )
+    print(f"   - Kết quả hủy: {msg_cancel}")
+
+    # Kiểm tra lại xem ngày đó đã giải phóng slot trống chưa
+    is_freed = booking_repo.check_availability(room_id_2, check_in_new)
+    print(f"   - Kiểm tra ngày {check_in_new} sau khi hủy: {'✅ Đã giải phóng (Trống)' if is_freed else 'Vẫn bị khóa'}")
+
 
     # Đóng kết nối
     hotel_repo.close()
