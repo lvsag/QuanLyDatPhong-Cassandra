@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 # QuanLyDatPhong-Cassandra
-=======
-# QuanLyDatPhong (Cassandra)
 
 Code phần 1 — quản lý đặt phòng sử dụng Cassandra.
 
@@ -33,5 +30,3 @@ python seed_db.py
 ```powershell
 python main.py
 ```
-
->>>>>>> 5126c8a (code phần 1)
