@@ -72,3 +72,36 @@ class CustomerRepository:
 
     def close(self):
         self.cluster.shutdown()
+
+
+    def get_by_id_safe(self, customer_id):
+        """Bọc ép kiểu UUID cho API người 2"""
+        c_id = uuid.UUID(str(customer_id)) if isinstance(customer_id, str) else customer_id
+        return self.get_by_id(c_id)
+
+    def delete_safe(self, customer_id):
+        """Bọc ép kiểu UUID cho API người 2"""
+        c_id = uuid.UUID(str(customer_id)) if isinstance(customer_id, str) else customer_id
+        self.delete(c_id)
+
+    def update_customer(self, customer_id, full_name, phone, id_number=None):
+        """Cập nhật thông tin khách hàng đồng bộ trên cả 2 bảng"""
+        c_id = uuid.UUID(str(customer_id)) if isinstance(customer_id, str) else customer_id
+        current_data = self.get_by_id(c_id)
+        if not current_data:
+            return False, "❌ Không tìm thấy khách hàng"
+
+        email = current_data['email']
+        created_at = current_data['created_at']
+
+        # Cập nhật bảng customers
+        self.session.execute(self.insert_customer, (
+            c_id, full_name, email, phone, id_number, created_at
+        ))
+
+        # Cập nhật bảng customers_by_email
+        self.session.execute(self.insert_by_email, (
+            email, c_id, full_name, phone
+        ))
+
+        return True, "✅ Cập nhật thông tin khách hàng thành công"

@@ -126,5 +126,20 @@ class BookingRepository:
             rows = self.session.execute(self.select_by_date, (booking_date, hotel_id))
         return [dict(r._asdict()) for r in rows]
 
+
+    def check_availability(self, room_id, check_in_date):
+        """Kiểm tra xem phòng có trống vào ngày check-in không"""
+        query = "SELECT status FROM bookings_by_room WHERE room_id = %s AND check_in_date = %s"
+        row = self.session.execute(query, (room_id, check_in_date)).one()
+        if row and row.status in ["CONFIRMED", "CHECKED_IN"]:
+            return False
+        return True
+
+    def update_booking_status(self, room_id, check_in_date, status):
+        """Cập nhật trạng thái booking (ví dụ: CHECKED_IN, CHECKED_OUT)"""
+        query = "UPDATE bookings_by_room SET status = %s WHERE room_id = %s AND check_in_date = %s"
+        self.session.execute(query, (status, room_id, check_in_date))
+        return True, f"✅ Đã cập nhật trạng thái thành {status}"
+
     def close(self):
         self.cluster.shutdown()
