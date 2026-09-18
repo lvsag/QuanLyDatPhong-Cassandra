@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Quản lý Đặt phòng Khách sạn{% endblock %} - Grand Luxe Hotels</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome 6 -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container-fluid p-0">
+        <div class="row g-0">
+            <!-- Sidebar Navigation -->
+            <div class="col-auto col-md-3 col-xl-2 px-0 sidebar d-flex flex-column justify-content-between">
+                <div>
+                    <div class="brand">
+                        <i class="fa-solid fa-hotel text-warning fs-4"></i>
+                        <span>Grand Luxe Stays</span>
+                    </div>
+
+                    <div class="sidebar-nav">
+                        <div class="sidebar-header">Báo cáo & Tổng quan</div>
+                        <a href="{{ url_for('dashboard') }}" class="sidebar-link {% if active_page == 'dashboard' %}active{% endif %}">
+                            <i class="fa-solid fa-chart-pie"></i>
+                            <span>Dashboard Thống kê</span>
+                        </a>
+
+                        <div class="sidebar-header">Quản lý Khách sạn</div>
+                        <a href="{{ url_for('admin_hotels') }}" class="sidebar-link {% if active_page == 'hotels' %}active{% endif %}">
+                            <i class="fa-solid fa-building"></i>
+                            <span>Danh sách Khách sạn</span>
+                        </a>
+                        <a href="{{ url_for('admin_rooms') }}" class="sidebar-link {% if active_page == 'rooms' %}active{% endif %}">
+                            <i class="fa-solid fa-door-open"></i>
+                            <span>Sơ đồ & Phòng</span>
+                        </a>
+                        <a href="{{ url_for('admin_bookings') }}" class="sidebar-link {% if active_page == 'bookings' %}active{% endif %}">
+                            <i class="fa-solid fa-calendar-check"></i>
+                            <span>Lễ tân & Đặt phòng</span>
+                        </a>
+                        <a href="{{ url_for('admin_customers') }}" class="sidebar-link {% if active_page == 'customers' %}active{% endif %}">
+                            <i class="fa-solid fa-users"></i>
+                            <span>Hồ sơ Khách hàng</span>
+                        </a>
+
+                        <div class="sidebar-header">Cổng Khách hàng</div>
+                        <a href="{{ url_for('client_index') }}" class="sidebar-link" target="_blank">
+                            <i class="fa-solid fa-globe text-info"></i>
+                            <span>Trang Đặt phòng Online <i class="fa-solid fa-arrow-up-right-from-square small ms-1 opacity-50"></i></span>
+                        </a>
+                        <a href="{{ url_for('client_my_bookings') }}" class="sidebar-link" target="_blank">
+                            <i class="fa-solid fa-receipt text-warning"></i>
+                            <span>Tra cứu Đơn phòng <i class="fa-solid fa-arrow-up-right-from-square small ms-1 opacity-50"></i></span>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="p-3 border-top border-secondary border-opacity-25 small text-secondary">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-success rounded-circle p-1"> </span>
+                        <span>Hệ thống trực tuyến 24/7</span>
+                    </div>
+                    <div class="small text-muted mt-1">Phiên bản Quản lý 2.5</div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="col px-0 d-flex flex-column min-vh-100">
+                <!-- Top Navbar -->
+                <nav class="top-navbar d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-secondary fw-semibold">{% block breadcrumb %}Hệ thống Quản lý Đặt phòng{% endblock %}</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <a href="{{ url_for('client_index') }}" target="_blank" class="btn btn-sm btn-outline-primary fw-medium">
+                            <i class="fa-solid fa-eye me-1"></i> Xem Cổng Đặt phòng
+                        </a>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light border dropdown-toggle fw-medium" type="button" data-bs-toggle="dropdown">
+                                <i class="fa-solid fa-user-circle text-primary me-1"></i> Ban Quản Lý
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                                <li><a class="dropdown-item" href="{{ url_for('dashboard') }}"><i class="fa-solid fa-chart-line me-2 text-muted"></i>Dashboard</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('admin_bookings') }}"><i class="fa-solid fa-calendar-check me-2 text-muted"></i>Lễ tân</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </nav>
+
+                <!-- Flash Alert Messages -->
+                <div class="px-4 pt-3">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show shadow-sm border-0" role="alert">
+                                    {% if category == 'success' %}
+                                        <i class="fa-solid fa-circle-check me-2"></i>
+                                    {% elif category == 'error' or category == 'danger' %}
+                                        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                                    {% else %}
+                                        <i class="fa-solid fa-circle-info me-2"></i>
+                                    {% endif %}
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                </div>
+
+                <!-- Page Body Content -->
+                <div class="p-4 flex-grow-1">
+                    {% block content %}{% endblock %}
+                </div>
+
+                <!-- Footer -->
+                <footer class="bg-white border-top py-3 px-4 text-muted small d-flex justify-content-between align-items-center mt-auto">
+                    <div>© 2026 Grand Luxe Hotels & Resorts. Tất cả quyền được bảo lưu.</div>
+                    <div>Hotline Lễ tân & Hỗ trợ: <strong class="text-primary">1900 8888</strong></div>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

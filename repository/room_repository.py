@@ -76,4 +76,4 @@ class RoomRepository:
         self.session.execute(self.delete_stmt, (h_id, r_id))
 
     def close(self):
-        self.cluster.shutdown()
+        pass

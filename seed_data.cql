@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS hotel_booking.customers (
     phone text,
     id_number text,
     created_at timestamp,
+    password_hash text,
     PRIMARY KEY (customer_id)
 );
 
@@ -76,6 +77,7 @@ CREATE TABLE IF NOT EXISTS hotel_booking.customers_by_email (
     customer_id UUID,
     full_name text,
     phone text,
+    password_hash text,
     PRIMARY KEY (email)
 );
 

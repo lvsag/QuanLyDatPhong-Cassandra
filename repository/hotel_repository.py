@@ -55,7 +55,7 @@ class HotelRepository:
         self.session.execute(self.delete_stmt, (hotel_id,))
 
     def close(self):
-        self.cluster.shutdown()
+        pass
 
 
     def get_by_id_safe(self, hotel_id):

@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from cassandra_config import get_session
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 class CustomerRepository:
@@ -14,8 +15,8 @@ class CustomerRepository:
         # Bảng customers
         self.insert_customer = self.session.prepare("""
             INSERT INTO customers 
-            (customer_id, full_name, email, phone, id_number, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (customer_id, full_name, email, phone, id_number, created_at, password_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """)
         self.select_by_id = self.session.prepare("""
             SELECT * FROM customers WHERE customer_id = ?
@@ -27,26 +28,27 @@ class CustomerRepository:
         # Bảng customers_by_email (dùng cho login)
         self.insert_by_email = self.session.prepare("""
             INSERT INTO customers_by_email 
-            (email, customer_id, full_name, phone)
-            VALUES (?, ?, ?, ?)
+            (email, customer_id, full_name, phone, password_hash)
+            VALUES (?, ?, ?, ?, ?)
         """)
         self.select_by_email = self.session.prepare("""
             SELECT * FROM customers_by_email WHERE email = ?
         """)
 
-    def create(self, full_name, email, phone, id_number=None):
+    def create(self, full_name, email, phone, id_number=None, password=None):
         """Tạo khách hàng mới. Ghi vào cả 2 bảng (denormalized)."""
         customer_id = uuid.uuid4()
         now = datetime.now()
+        password_hash = generate_password_hash(password) if password else None
 
         # Bảng 1: customers
         self.session.execute(self.insert_customer, (
-            customer_id, full_name, email, phone, id_number, now
+            customer_id, full_name, email, phone, id_number, now, password_hash
         ))
 
         # Bảng 2: customers_by_email (để login)
         self.session.execute(self.insert_by_email, (
-            email, customer_id, full_name, phone
+            email, customer_id, full_name, phone, password_hash
         ))
 
         return customer_id
@@ -60,6 +62,14 @@ class CustomerRepository:
         row = self.session.execute(self.select_by_email, (email,)).one()
         return dict(row._asdict()) if row else None
 
+    def verify_login(self, email, password):
+        customer = self.get_by_email(email)
+        if not customer:
+            return None
+        stored_hash = customer.get("password_hash")
+        valid = check_password_hash(stored_hash, password) if stored_hash else password == customer.get("phone")
+        return customer if valid else None
+
     def delete(self, customer_id):
         """Xóa khách - cần lấy email trước để xóa bảng email."""
         customer = self.get_by_id(customer_id)
@@ -71,7 +81,7 @@ class CustomerRepository:
         self.session.execute(self.delete_customer, (customer_id,))
 
     def close(self):
-        self.cluster.shutdown()
+        pass
 
 
     def get_by_id_safe(self, customer_id):
@@ -96,12 +106,12 @@ class CustomerRepository:
 
         # Cập nhật bảng customers
         self.session.execute(self.insert_customer, (
-            c_id, full_name, email, phone, id_number, created_at
+            c_id, full_name, email, phone, id_number, created_at, current_data.get("password_hash")
         ))
 
         # Cập nhật bảng customers_by_email
         self.session.execute(self.insert_by_email, (
-            email, c_id, full_name, phone
+            email, c_id, full_name, phone, current_data.get("password_hash")
         ))
 
         return True, "✅ Cập nhật thông tin khách hàng thành công"

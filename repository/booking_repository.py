@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from cassandra_config import get_session
+from cassandra_config import get_session, to_py_date
 
 
 class BookingRepository:
@@ -109,37 +109,53 @@ class BookingRepository:
 
     def get_bookings_by_room(self, room_id):
         rows = self.session.execute(self.select_by_room, (room_id,))
-        return [dict(r._asdict()) for r in rows]
+        res = []
+        for r in rows:
+            d = dict(r._asdict())
+            if "check_in_date" in d:
+                d["check_in_date"] = to_py_date(d["check_in_date"])
+            if "check_out_date" in d:
+                d["check_out_date"] = to_py_date(d["check_out_date"])
+            res.append(d)
+        return res
 
     def get_bookings_by_customer(self, customer_id):
         rows = self.session.execute(self.select_by_customer, (customer_id,))
         return [dict(r._asdict()) for r in rows]
 
     def get_bookings_by_date(self, booking_date, hotel_id):
-        """Dùng cho dashboard Người 3."""
+        """Dùng cho dashboard và admin."""
+        b_date = to_py_date(booking_date)
         if self.select_by_date is None:
             rows = self.session.execute(
                 "SELECT * FROM bookings_by_date WHERE booking_date = %s AND hotel_id = %s",
-                (booking_date, hotel_id)
+                (b_date, hotel_id)
             )
         else:
-            rows = self.session.execute(self.select_by_date, (booking_date, hotel_id))
-        return [dict(r._asdict()) for r in rows]
-
+            rows = self.session.execute(self.select_by_date, (b_date, hotel_id))
+        res = []
+        for r in rows:
+            d = dict(r._asdict())
+            if "booking_date" in d:
+                d["booking_date"] = to_py_date(d["booking_date"])
+            res.append(d)
+        return res
 
     def check_availability(self, room_id, check_in_date):
         """Kiểm tra xem phòng có trống vào ngày check-in không"""
+        b_date = to_py_date(check_in_date)
         query = "SELECT status FROM bookings_by_room WHERE room_id = %s AND check_in_date = %s"
-        row = self.session.execute(query, (room_id, check_in_date)).one()
+        row = self.session.execute(query, (room_id, b_date)).one()
         if row and row.status in ["CONFIRMED", "CHECKED_IN"]:
             return False
         return True
 
     def update_booking_status(self, room_id, check_in_date, status):
         """Cập nhật trạng thái booking (ví dụ: CHECKED_IN, CHECKED_OUT)"""
+        b_date = to_py_date(check_in_date)
         query = "UPDATE bookings_by_room SET status = %s WHERE room_id = %s AND check_in_date = %s"
-        self.session.execute(query, (status, room_id, check_in_date))
+        self.session.execute(query, (status, room_id, b_date))
         return True, f"✅ Đã cập nhật trạng thái thành {status}"
 
     def close(self):
-        self.cluster.shutdown()
+        pass
