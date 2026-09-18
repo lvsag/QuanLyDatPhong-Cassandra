@@ -1,0 +1,149 @@
+{% extends "layout.html" %}
+
+{% block title %}Quản lý Khách sạn{% endblock %}
+{% block breadcrumb %}Quản lý Khách sạn / Danh sách Cơ sở{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-1"><i class="fa-solid fa-building text-primary me-2"></i>Danh Sách Chi Nhánh Khách Sạn</h4>
+        <p class="text-muted mb-0">Quản lý các cơ sở và khu nghỉ dưỡng trong toàn hệ thống</p>
+    </div>
+    <button class="btn btn-primary fw-medium px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#createHotelModal">
+        <i class="fa-solid fa-plus me-1"></i> Thêm Khách Sạn Mới
+    </button>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Tên Khách Sạn</th>
+                        <th>Địa Chỉ</th>
+                        <th>Thành Phố</th>
+                        <th>Hotline</th>
+                        <th>Hạng Sao</th>
+                        <th class="text-end">Thao Tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in hotels %}
+                    <tr>
+                        <td>
+                            <strong class="text-dark fs-6">{{ h.name }}</strong>
+                        </td>
+                        <td>{{ h.address }}</td>
+                        <td><span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-2 py-1">{{ h.city }}</span></td>
+                        <td><i class="fa-solid fa-phone text-muted me-1 small"></i>{{ h.phone }}</td>
+                        <td>
+                            <span class="text-warning"><i class="fa-solid fa-star"></i></span>
+                            <strong class="text-dark">{{ h.rating }}</strong>/5
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-warning me-1" data-bs-toggle="modal" data-bs-target="#editHotelModal{{ h.hotel_id }}" title="Chỉnh sửa thông tin">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <form method="POST" action="{{ url_for('admin_delete_hotel', hotel_id=h.hotel_id) }}" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa khách sạn này khỏi hệ thống?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa cơ sở">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+
+                    <!-- Edit Modal -->
+                    <div class="modal fade" id="editHotelModal{{ h.hotel_id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content border-0 shadow">
+                                <form method="POST" action="{{ url_for('admin_update_hotel', hotel_id=h.hotel_id) }}">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title fw-bold"><i class="fa-solid fa-pen-to-square text-warning me-2"></i>Chỉnh Sửa Thông Tin Khách Sạn</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold">Tên Khách Sạn</label>
+                                            <input type="text" name="name" class="form-control" value="{{ h.name }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold">Địa Chỉ Chi Tiết</label>
+                                            <input type="text" name="address" class="form-control" value="{{ h.address }}" required>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label fw-semibold">Thành Phố / Tỉnh</label>
+                                                <input type="text" name="city" class="form-control" value="{{ h.city }}" required>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label fw-semibold">Hotline Liên Hệ</label>
+                                                <input type="text" name="phone" class="form-control" value="{{ h.phone }}" required>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold">Đánh Giá (Sao từ 1.0 - 5.0)</label>
+                                            <input type="number" step="0.1" min="1" max="5" name="rating" class="form-control" value="{{ h.rating }}" required>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                                        <button type="submit" class="btn btn-primary fw-semibold">Lưu Thay Đổi</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">Chưa có khách sạn nào được tạo trong hệ thống.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Create Hotel Modal -->
+<div class="modal fade" id="createHotelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <form method="POST" action="{{ url_for('admin_create_hotel') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-plus text-primary me-2"></i>Thêm Khách Sạn / Resort Mới</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tên Khách Sạn</label>
+                        <input type="text" name="name" class="form-control" placeholder="Ví dụ: Grand Palace Resort" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Địa Chỉ Chi Tiết</label>
+                        <input type="text" name="address" class="form-control" placeholder="Ví dụ: 123 Đường Trần Phú" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Thành Phố</label>
+                            <input type="text" name="city" class="form-control" placeholder="Đà Nẵng, Nha Trang..." required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Hotline Liên Hệ</label>
+                            <input type="text" name="phone" class="form-control" placeholder="0236123456" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Hạng Sao Đánh Giá</label>
+                        <input type="number" step="0.1" min="1" max="5" name="rating" class="form-control" value="4.8" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary fw-semibold">Tạo Khách Sạn</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

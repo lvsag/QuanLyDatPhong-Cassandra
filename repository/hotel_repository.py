@@ -55,4 +55,26 @@ class HotelRepository:
         self.session.execute(self.delete_stmt, (hotel_id,))
 
     def close(self):
-        self.cluster.shutdown()
+        pass
+
+
+    def get_by_id_safe(self, hotel_id):
+        """Hàm bọc ép kiểu UUID từ chuỗi cho API Người 2"""
+        h_id = uuid.UUID(str(hotel_id)) if isinstance(hotel_id, str) else hotel_id
+        return self.get_by_id(h_id)
+
+    def update_safe(self, hotel_id, name, address, city, phone, rating):
+        """Hàm bọc ép kiểu UUID từ chuỗi cho API Người 2"""
+        h_id = uuid.UUID(str(hotel_id)) if isinstance(hotel_id, str) else hotel_id
+        self.update(h_id, name, address, city, phone, float(rating))
+
+    def delete_safe(self, hotel_id):
+        """Hàm bọc ép kiểu UUID từ chuỗi cho API Người 2"""
+        h_id = uuid.UUID(str(hotel_id)) if isinstance(hotel_id, str) else hotel_id
+        self.delete(h_id)
+
+    def search_by_city(self, city):
+        """Tìm kiếm khách sạn theo thành phố (Filtering)"""
+        query = "SELECT * FROM hotels WHERE city = %s ALLOW FILTERING"
+        rows = self.session.execute(query, (city,))
+        return [dict(r._asdict()) for r in rows]

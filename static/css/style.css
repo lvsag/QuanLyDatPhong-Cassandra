@@ -1,0 +1,250 @@
+:root {
+    --primary: #1e40af;
+    --primary-light: #3b82f6;
+    --primary-subtle: #eff6ff;
+    --secondary: #64748b;
+    --accent: #f59e0b;
+    --success: #10b981;
+    --danger: #ef4444;
+    --dark: #0f172a;
+    --sidebar-bg: #0f172a;
+    --sidebar-hover: #1e293b;
+    --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    --card-hover-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #f8fafc;
+    color: #1e293b;
+    min-height: 100vh;
+}
+
+/* ==================== SIDEBAR ==================== */
+.sidebar {
+    background-color: var(--sidebar-bg);
+    min-height: 100vh;
+    color: #94a3b8;
+    box-shadow: 4px 0 10px rgba(0, 0, 0, 0.03);
+}
+
+.sidebar .brand {
+    padding: 1.5rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #ffffff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+.sidebar-nav {
+    padding: 1.25rem 0;
+}
+
+.sidebar-header {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    padding: 0.85rem 1.5rem 0.35rem;
+}
+
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.8rem 1.5rem;
+    color: #cbd5e1;
+    text-decoration: none;
+    font-size: 0.925rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+}
+
+.sidebar-link:hover {
+    color: #ffffff;
+    background-color: var(--sidebar-hover);
+    border-left-color: #60a5fa;
+}
+
+.sidebar-link.active {
+    color: #ffffff;
+    background-color: rgba(59, 130, 246, 0.15);
+    border-left-color: var(--primary-light);
+    font-weight: 600;
+}
+
+.sidebar-link i {
+    width: 22px;
+    text-align: center;
+    font-size: 1.1rem;
+}
+
+/* ==================== NAVBAR ==================== */
+.top-navbar {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 0.85rem 1.75rem;
+}
+
+/* ==================== CARDS & METRICS ==================== */
+.card {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.875rem;
+    box-shadow: var(--card-shadow);
+    background-color: #ffffff;
+    transition: all 0.25s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--card-hover-shadow);
+}
+
+.card-header {
+    background-color: #ffffff;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 1.1rem 1.35rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.metric-box {
+    padding: 1.4rem;
+    border-radius: 0.875rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.metric-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+}
+
+.metric-icon.blue { background-color: #eff6ff; color: #2563eb; }
+.metric-icon.green { background-color: #ecfdf5; color: #059669; }
+.metric-icon.purple { background-color: #f5f3ff; color: #7c3aed; }
+.metric-icon.amber { background-color: #fffbeb; color: #d97706; }
+
+.metric-title {
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.25rem;
+}
+
+.metric-value {
+    font-size: 1.85rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.2;
+}
+
+/* ==================== BADGES & STATUS ==================== */
+.badge-status {
+    padding: 0.4em 0.75em;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.badge-available { background-color: #dcfce7; color: #166534; }
+.badge-occupied { background-color: #fee2e2; color: #991b1b; }
+.badge-maintenance { background-color: #fef3c7; color: #92400e; }
+.badge-confirmed { background-color: #dbeafe; color: #1e40af; }
+.badge-checkedin { background-color: #dcfce7; color: #166534; }
+.badge-checkedout { background-color: #f1f5f9; color: #475569; }
+.badge-cancelled { background-color: #fee2e2; color: #991b1b; }
+
+/* ==================== TABLES ==================== */
+.table th {
+    background-color: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.725rem;
+    letter-spacing: 0.05em;
+    padding: 0.85rem 1rem;
+    border-top: none;
+}
+
+.table td {
+    padding: 0.95rem 1rem;
+    vertical-align: middle;
+}
+
+/* ==================== CLIENT PORTAL LUXURY ==================== */
+.client-hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0369a1 100%);
+    color: #ffffff;
+    padding: 5rem 1.5rem 6.5rem;
+    border-radius: 1.25rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.client-hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(circle at top right, rgba(245, 158, 11, 0.15), transparent 50%);
+    pointer-events: none;
+}
+
+.client-search-box {
+    background: #ffffff;
+    border-radius: 1rem;
+    padding: 1.75rem;
+    margin-top: -3.5rem;
+    box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.room-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    overflow: hidden;
+    background: #ffffff;
+    transition: all 0.3s ease;
+}
+
+.room-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08);
+    border-color: #cbd5e1;
+}
+
+.room-image-placeholder {
+    height: 200px;
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.room-feature-tag {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    background-color: #f1f5f9;
+    color: #475569;
+    border-radius: 6px;
+    font-weight: 500;
+}
