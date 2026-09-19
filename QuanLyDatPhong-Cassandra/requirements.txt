@@ -1,0 +1,3 @@
+cassandra-driver==3.30.1
+streamlit>=1.38
+pandas>=2.0
