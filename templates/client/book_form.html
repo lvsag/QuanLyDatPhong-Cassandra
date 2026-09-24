@@ -89,23 +89,23 @@
 
                                     <div class="mb-3">
                                         <label class="form-label fw-semibold">Họ và Tên khách hàng <span class="text-danger">*</span></label>
-                                        <input type="text" name="full_name" class="form-control form-control-lg fs-6" placeholder="Ví dụ: Nguyễn Văn An" required>
+                                        <input type="text" name="full_name" class="form-control form-control-lg fs-6" value="{{ customer.full_name if customer else '' }}" placeholder="Ví dụ: Nguyễn Văn An" required>
                                     </div>
 
                                     <div class="mb-3">
                                         <label class="form-label fw-semibold">Địa chỉ Email <span class="text-danger">*</span></label>
-                                        <input type="email" name="email" class="form-control form-control-lg fs-6" placeholder="nguyenvanan@gmail.com" required>
+                                        <input type="email" name="email" class="form-control form-control-lg fs-6" value="{{ customer.email if customer else '' }}" placeholder="nguyenvanan@gmail.com" required {% if customer %}readonly{% endif %}>
                                         <div class="form-text small">Email dùng để nhận mã xác nhận và tra cứu lịch sử đặt phòng.</div>
                                     </div>
 
                                     <div class="mb-3">
                                         <label class="form-label fw-semibold">Số điện thoại liên hệ <span class="text-danger">*</span></label>
-                                        <input type="text" name="phone" class="form-control form-control-lg fs-6" placeholder="0901234567" required>
+                                        <input type="text" name="phone" class="form-control form-control-lg fs-6" value="{{ customer.phone if customer else '' }}" placeholder="0901234567" required>
                                     </div>
 
                                     <div class="mb-4">
                                         <label class="form-label fw-semibold">Số CCCD / Hộ chiếu</label>
-                                        <input type="text" name="id_number" class="form-control form-control-lg fs-6" placeholder="012345678901 (tùy chọn)">
+                                        <input type="text" name="id_number" class="form-control form-control-lg fs-6" value="{{ customer.id_number if customer and customer.id_number else '' }}" placeholder="012345678901 (tùy chọn)">
                                     </div>
 
                                     <div class="d-flex gap-2 pt-2">

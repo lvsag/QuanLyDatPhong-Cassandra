@@ -108,7 +108,7 @@ def dashboard():
     month = int(request.args.get("month", 1))
     year = int(request.args.get("year", 2026))
 
-    # Tính toán số liệu
+    # Tính toán số liệu từ DashboardService
     occ_today = service.room_occupancy_on_date(current_hotel["hotel_id"], target_date)
 
     first_day = date(year, month, 1)
@@ -191,21 +191,47 @@ def admin_delete_hotel(hotel_id):
 def admin_rooms():
     hotel_repo = get_hotel_repo()
     room_repo = get_room_repo()
+    booking_repo = get_booking_repo()
+
     hotels = hotel_repo.get_all()
     if not hotels:
         flash("Chưa có khách sạn nào trong hệ thống!", "warning")
-        return render_template("admin/rooms.html", active_page="rooms", hotels=[], current_hotel=None, rooms=[])
+        return render_template("admin/rooms.html", active_page="rooms", hotels=[], current_hotel=None, rooms=[], target_date_str="2026-01-08")
 
     hotel_id_str = request.args.get("hotel_id", str(hotels[0]["hotel_id"]))
     current_hotel = next((h for h in hotels if str(h["hotel_id"]) == hotel_id_str), hotels[0])
     rooms = room_repo.get_by_hotel(current_hotel["hotel_id"])
+
+    target_date_str = request.args.get("target_date", "2026-01-08")
+    try:
+        target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
+    except Exception:
+        target_date = date(2026, 1, 8)
+        target_date_str = "2026-01-08"
+
+    # Đánh giá trạng thái thực tế của phòng vào ngày target_date
+    nights = booking_repo.get_room_nights_by_hotel_date(current_hotel["hotel_id"], target_date)
+    occupied_status_map = {
+        str(n["room_id"]): n.get("status") for n in nights if n.get("status") in ["CONFIRMED", "CHECKED_IN"]
+    }
+
+    processed_rooms = []
+    for r in rooms:
+        item = dict(r)
+        r_id_str = str(r["room_id"])
+        if item.get("status") == "AVAILABLE" and r_id_str in occupied_status_map:
+            item["display_status"] = occupied_status_map[r_id_str]  # CONFIRMED / CHECKED_IN
+        else:
+            item["display_status"] = item.get("status", "AVAILABLE")
+        processed_rooms.append(item)
 
     return render_template(
         "admin/rooms.html",
         active_page="rooms",
         hotels=hotels,
         current_hotel=current_hotel,
-        rooms=rooms,
+        rooms=processed_rooms,
+        target_date_str=target_date_str,
     )
 
 
@@ -275,6 +301,7 @@ def admin_bookings():
             current_hotel=None,
             bookings=[],
             rooms=[],
+            available_rooms_for_counter=[],
             target_date_str="2026-01-08",
         )
 
@@ -288,17 +315,29 @@ def admin_bookings():
         target_date = date(2026, 1, 8)
         target_date_str = "2026-01-08"
 
-    bookings_raw = booking_repo.get_bookings_by_date(target_date, current_hotel["hotel_id"])
+    # Đọc dữ liệu đêm lưu trú trực tiếp từ room_nights_by_hotel_date
+    nights = booking_repo.get_room_nights_by_hotel_date(current_hotel["hotel_id"], target_date)
     rooms = room_repo.get_by_hotel(current_hotel["hotel_id"])
-    room_map = {str(r["room_id"]): r for r in rooms}
 
-    # Bổ sung thông tin phòng và khách hàng
+    # Lọc danh sách phòng thực sự khả dụng tại quầy vào ngày target_date
+    available_rooms_for_counter = []
+    for r in rooms:
+        if _room_is_bookable(r) and booking_repo.check_room_available(r["room_id"], target_date, target_date + timedelta(days=1)):
+            available_rooms_for_counter.append(r)
+
     bookings = []
-    for b in bookings_raw:
-        item = dict(b)
-        item["room_info"] = room_map.get(str(b["room_id"]))
-        cust = customer_repo.get_by_id(b["customer_id"])
-        item["customer_info"] = cust
+    for n in nights:
+        cust = customer_repo.get_by_id(n["customer_id"])
+        item = {
+            "booking_id": n["booking_id"],
+            "room_id": n["room_id"],
+            "customer_id": n["customer_id"],
+            "check_in_date": n["check_in_date"],
+            "check_out_date": n["check_out_date"],
+            "status": n["status"],
+            "customer_info": cust or {"full_name": n.get("customer_name", ""), "email": "", "phone": ""},
+            "room_info": {"room_number": n.get("room_number", ""), "room_type": n.get("room_type", ""), "price": n.get("price_per_night", 0)}
+        }
         bookings.append(item)
 
     return render_template(
@@ -308,6 +347,7 @@ def admin_bookings():
         current_hotel=current_hotel,
         bookings=bookings,
         rooms=rooms,
+        available_rooms_for_counter=available_rooms_for_counter,
         target_date_str=target_date_str,
     )
 
@@ -339,9 +379,13 @@ def admin_create_booking():
     if existing_cust:
         customer_id = existing_cust["customer_id"]
     else:
-        customer_id = customer_repo.create(full_name, email, phone, id_number)
+        try:
+            customer_id = customer_repo.create(full_name, email, phone, id_number)
+        except ValueError as ve:
+            flash(str(ve), "error")
+            return redirect(url_for("admin_bookings", hotel_id=hotel_id_str, target_date=check_in_str))
 
-    # Đặt phòng với LWT
+    # Đặt phòng với Paxos LWT Conditional Batch
     booking_repo = get_booking_repo()
     success, booking_id, msg = booking_repo.create_booking(
         room_id=room_id,
@@ -349,6 +393,7 @@ def admin_create_booking():
         hotel_id=hotel_id,
         check_in_date=check_in_date,
         check_out_date=check_out_date,
+        customer_name=full_name,
     )
 
     if success:
@@ -361,19 +406,16 @@ def admin_create_booking():
 
 @app.route("/admin/bookings/update-status", methods=["POST"])
 def admin_update_booking_status():
-    room_id_str = request.form.get("room_id")
-    check_in_str = request.form.get("check_in_date")
+    booking_id_str = request.form.get("booking_id")
     status = request.form.get("status")
     hotel_id_str = request.form.get("hotel_id", "")
-
-    room_id = uuid.UUID(room_id_str) if isinstance(room_id_str, str) else room_id_str
-    check_in_date = datetime.strptime(check_in_str, "%Y-%m-%d").date() if isinstance(check_in_str, str) else check_in_str
+    room_id_str = request.form.get("room_id", "")
 
     booking_repo = get_booking_repo()
-    booking_repo.update_booking_status(room_id, check_in_date, status)
+    if booking_id_str:
+        booking_repo.update_booking_status(booking_id_str, status)
 
-    # Đồng bộ trạng thái phòng trong rooms_by_hotel
-    if hotel_id_str:
+    if hotel_id_str and room_id_str:
         room_repo = get_room_repo()
         if status == "CHECKED_IN":
             room_repo.update_status(hotel_id_str, room_id_str, "OCCUPIED")
@@ -386,21 +428,20 @@ def admin_update_booking_status():
 
 @app.route("/admin/bookings/cancel", methods=["POST"])
 def admin_cancel_booking():
-    room_id = uuid.UUID(request.form.get("room_id"))
-    booking_id = uuid.UUID(request.form.get("booking_id"))
-    customer_id = uuid.UUID(request.form.get("customer_id"))
-    hotel_id = uuid.UUID(request.form.get("hotel_id"))
-    check_in_str = request.form.get("check_in_date")
-    check_in_date = datetime.strptime(check_in_str, "%Y-%m-%d").date()
+    booking_id_str = request.form.get("booking_id")
+    hotel_id_str = request.form.get("hotel_id")
+    room_id_str = request.form.get("room_id")
 
     booking_repo = get_booking_repo()
-    booking_repo.cancel_booking(room_id, check_in_date, booking_id, customer_id, hotel_id)
+    if booking_id_str:
+        ok, msg = booking_repo.cancel_booking(booking_id_str)
+        if ok:
+            if hotel_id_str and room_id_str:
+                get_room_repo().update_status(hotel_id_str, room_id_str, "AVAILABLE")
+            flash("Đã hủy đơn đặt phòng và giải phóng slot phòng trên Cassandra!", "info")
+        else:
+            flash(msg, "error")
 
-    # Trả phòng về trạng thái sẵn sàng khi hủy booking
-    room_repo = get_room_repo()
-    room_repo.update_status(hotel_id, room_id, "AVAILABLE")
-
-    flash("Đã hủy đơn đặt phòng và giải phóng slot phòng trên Cassandra!", "info")
     return redirect(request.referrer or url_for("admin_bookings"))
 
 
@@ -410,7 +451,6 @@ def admin_customers():
     customer_repo = get_customer_repo()
     booking_repo = get_booking_repo()
 
-    # Query all customers
     cluster, session = customer_repo.cluster, customer_repo.session
     rows = session.execute("SELECT * FROM customers")
     customers = [dict(r._asdict()) for r in rows]
@@ -472,22 +512,12 @@ def client_index():
 
     all_rooms = room_repo.get_by_hotel(current_hotel["hotel_id"])
 
-    # Lọc phòng thực sự trống trong khoảng [check_in, check_out)
+    # Lọc phòng thực sự trống trong khoảng [check_in, check_out) qua room_nights_by_room
     available_rooms = []
     for r in all_rooms:
         if not _room_is_bookable(r):
             continue
-        bookings = booking_repo.get_bookings_by_room(r["room_id"])
-        is_free = True
-        for b in bookings:
-            if b.get("status") != "CONFIRMED":
-                continue
-            b_in = to_py_date(b.get("check_in_date"))
-            b_out = to_py_date(b.get("check_out_date"))
-            if b_in and b_out and max(b_in, check_in) < min(b_out, check_out):
-                is_free = False
-                break
-        if is_free:
+        if booking_repo.check_room_available(r["room_id"], check_in, check_out):
             available_rooms.append(r)
 
     return render_template(
@@ -523,6 +553,14 @@ def client_book_form():
         flash("Phòng này hiện không sẵn sàng để đặt. Vui lòng chọn phòng khác.", "error")
         return redirect(url_for("client_index", hotel_id=hotel_id_str, check_in_date=check_in_str, check_out_date=check_out_str))
 
+    # Lấy thông tin khách hàng nếu đã đăng nhập
+    customer_repo = get_customer_repo()
+    customer = None
+    if session.get("customer_email"):
+        customer = customer_repo.get_by_email(session["customer_email"])
+    elif session.get("customer_id"):
+        customer = customer_repo.get_by_id(session["customer_id"])
+
     try:
         check_in = datetime.strptime(check_in_str, "%Y-%m-%d").date()
         check_out = datetime.strptime(check_out_str, "%Y-%m-%d").date()
@@ -536,6 +574,7 @@ def client_book_form():
         "client/book_form.html",
         hotel=hotel,
         room=room,
+        customer=customer,
         check_in_str=check_in_str,
         check_out_str=check_out_str,
         nights=nights,
@@ -570,7 +609,11 @@ def client_confirm_booking():
     if existing_cust:
         customer_id = existing_cust["customer_id"]
     else:
-        customer_id = customer_repo.create(full_name, email, phone, id_number)
+        try:
+            customer_id = customer_repo.create(full_name, email, phone, id_number)
+        except ValueError as ve:
+            flash(str(ve), "error")
+            return redirect(url_for("client_index", hotel_id=hotel_id_str))
 
     booking_repo = get_booking_repo()
     success, booking_id, msg = booking_repo.create_booking(
@@ -579,6 +622,7 @@ def client_confirm_booking():
         hotel_id=hotel_id,
         check_in_date=check_in_date,
         check_out_date=check_out_date,
+        customer_name=full_name,
     )
 
     if success:
@@ -615,15 +659,6 @@ def client_my_bookings():
                 item["hotel_name"] = hotel["name"] if hotel else str(b["hotel_id"])
                 room = room_repo.get_one(b["hotel_id"], b["room_id"])
                 item["room_info"] = f"Phòng {room['room_number']} ({room['room_type']})" if room else str(b["room_id"])
-
-                # Tìm check_in_date từ room bookings để phục vụ hủy
-                room_bookings = booking_repo.get_bookings_by_room(b["room_id"])
-                rb_match = next((rb for rb in room_bookings if rb["booking_id"] == b["booking_id"]), None)
-                if rb_match:
-                    item["check_in_date"] = rb_match["check_in_date"]
-                else:
-                    item["check_in_date"] = None
-
                 bookings.append(item)
 
     return render_template(
@@ -636,21 +671,21 @@ def client_my_bookings():
 
 @app.route("/client/my-bookings/cancel", methods=["POST"])
 def client_cancel_booking():
-    email = request.form.get("email")
-    room_id = uuid.UUID(request.form.get("room_id"))
-    booking_id = uuid.UUID(request.form.get("booking_id"))
-    customer_id = uuid.UUID(request.form.get("customer_id"))
-    hotel_id = uuid.UUID(request.form.get("hotel_id"))
-    check_in_str = request.form.get("check_in_date")
-    check_in_date = datetime.strptime(check_in_str, "%Y-%m-%d").date()
+    booking_id_str = request.form.get("booking_id")
+    customer_id_str = request.form.get("customer_id")
 
-    if str(customer_id) != str(session.get("customer_id")):
+    if customer_id_str and str(customer_id_str) != str(session.get("customer_id")):
         flash("Phiên đăng nhập không hợp lệ.", "error")
         return redirect(url_for("client_login"))
 
     booking_repo = get_booking_repo()
-    booking_repo.cancel_booking(room_id, check_in_date, booking_id, customer_id, hotel_id)
-    flash("Quý khách đã hủy đơn đặt phòng thành công. Slot phòng đã được mở lại!", "info")
+    if booking_id_str:
+        ok, msg = booking_repo.cancel_booking(booking_id_str)
+        if ok:
+            flash("Quý khách đã hủy đơn đặt phòng thành công. Slot phòng đã được mở lại!", "info")
+        else:
+            flash(msg, "error")
+
     return redirect(url_for("client_my_bookings"))
 
 
@@ -689,17 +724,16 @@ def client_register():
             return render_template("client/register.html")
 
         customer_repo = get_customer_repo()
-        existing = customer_repo.get_by_email(email)
-        if existing:
-            flash("Email này đã được đăng ký. Vui lòng đăng nhập.", "error")
+        try:
+            customer_id = customer_repo.create(full_name, email, phone, password=password)
+            session["customer_id"] = str(customer_id)
+            session["customer_email"] = email
+            session["customer_name"] = full_name
+            flash(f"🎉 Chào mừng {full_name}! Tài khoản đã được tạo thành công.", "success")
+            return redirect(url_for("client_index"))
+        except ValueError as ve:
+            flash(str(ve), "error")
             return redirect(url_for("client_login"))
-
-        customer_id = customer_repo.create(full_name, email, phone, password=password)
-        session["customer_id"] = str(customer_id)
-        session["customer_email"] = email
-        session["customer_name"] = full_name
-        flash(f"🎉 Chào mừng {full_name}! Tài khoản đã được tạo thành công.", "success")
-        return redirect(url_for("client_index"))
 
     return render_template("client/register.html")
 

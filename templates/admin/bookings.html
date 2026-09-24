@@ -161,10 +161,12 @@
                             <input type="text" class="form-control" value="{{ current_hotel.name if current_hotel else '' }}" disabled>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label class="form-label fw-semibold">Chọn Phòng Phục Vụ</label>
+                            <label class="form-label fw-semibold">Chọn Phòng Phục Vụ (Trống ngày {{ target_date_str }})</label>
                             <select name="room_id" class="form-select" required>
-                                {% for r in rooms %}
+                                {% for r in available_rooms_for_counter %}
                                 <option value="{{ r.room_id }}">Phòng {{ r.room_number }} - {{ r.room_type }} ({{ "{:,.0f}".format(r.price) }} đ/đêm)</option>
+                                {% else %}
+                                <option value="" disabled selected>Không có phòng nào trống vào ngày {{ target_date_str }}</option>
                                 {% endfor %}
                             </select>
                         </div>

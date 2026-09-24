@@ -4,7 +4,7 @@ from cassandra_config import get_session
 
 
 class RoomRepository:
-    """Quản lý phòng - Bảng rooms_by_hotel (Người 1 & 2)"""
+    """Quản lý phòng - Bảng rooms_by_hotel"""
 
     def __init__(self):
         self.cluster, self.session = get_session()

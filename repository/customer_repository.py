@@ -5,14 +5,13 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 
 class CustomerRepository:
-    """Quản lý khách hàng - bảng customers + customers_by_email"""
+    """Quản lý khách hàng - bảng customers + customers_by_email (LWT email uniqueness)"""
 
     def __init__(self):
         self.cluster, self.session = get_session()
         self._prepare()
 
     def _prepare(self):
-        # Bảng customers
         self.insert_customer = self.session.prepare("""
             INSERT INTO customers 
             (customer_id, full_name, email, phone, id_number, created_at, password_hash)
@@ -25,8 +24,14 @@ class CustomerRepository:
             DELETE FROM customers WHERE customer_id = ?
         """)
 
-        # Bảng customers_by_email (dùng cho login)
-        self.insert_by_email = self.session.prepare("""
+        # Bảng customers_by_email sử dụng LWT IF NOT EXISTS để bảo đảm duy nhất email
+        self.insert_by_email_lwt = self.session.prepare("""
+            INSERT INTO customers_by_email 
+            (email, customer_id, full_name, phone, password_hash)
+            VALUES (?, ?, ?, ?, ?)
+            IF NOT EXISTS
+        """)
+        self.update_by_email = self.session.prepare("""
             INSERT INTO customers_by_email 
             (email, customer_id, full_name, phone, password_hash)
             VALUES (?, ?, ?, ?, ?)
@@ -36,30 +41,41 @@ class CustomerRepository:
         """)
 
     def create(self, full_name, email, phone, id_number=None, password=None):
-        """Tạo khách hàng mới. Ghi vào cả 2 bảng (denormalized)."""
+        """
+        Tạo khách hàng mới với LWT email uniqueness.
+        Trả về customer_id nếu thành công, raise ValueError nếu email đã tồn tại.
+        """
+        norm_email = email.strip().lower() if email else ""
         customer_id = uuid.uuid4()
         now = datetime.now()
         password_hash = generate_password_hash(password) if password else None
 
-        # Bảng 1: customers
-        self.session.execute(self.insert_customer, (
-            customer_id, full_name, email, phone, id_number, now, password_hash
+        # Bước 1: Thử LWT insert vào customers_by_email
+        res = self.session.execute(self.insert_by_email_lwt, (
+            norm_email, customer_id, full_name, phone, password_hash
         ))
+        row = res.one()
+        if row is not None and not row.applied:
+            raise ValueError(f"Email '{norm_email}' đã được sử dụng trong hệ thống.")
 
-        # Bảng 2: customers_by_email (để login)
-        self.session.execute(self.insert_by_email, (
-            email, customer_id, full_name, phone, password_hash
+        # Bước 2: Thêm thông tin chi tiết vào bảng customers
+        self.session.execute(self.insert_customer, (
+            customer_id, full_name, norm_email, phone, id_number, now, password_hash
         ))
 
         return customer_id
 
     def get_by_id(self, customer_id):
-        row = self.session.execute(self.select_by_id, (customer_id,)).one()
+        c_id = uuid.UUID(str(customer_id)) if isinstance(customer_id, str) else customer_id
+        row = self.session.execute(self.select_by_id, (c_id,)).one()
         return dict(row._asdict()) if row else None
 
     def get_by_email(self, email):
-        """Dùng cho chức năng login."""
-        row = self.session.execute(self.select_by_email, (email,)).one()
+        """Dùng cho chức năng login & tra cứu."""
+        if not email:
+            return None
+        norm_email = email.strip().lower()
+        row = self.session.execute(self.select_by_email, (norm_email,)).one()
         return dict(row._asdict()) if row else None
 
     def verify_login(self, email, password):
@@ -71,31 +87,25 @@ class CustomerRepository:
         return customer if valid else None
 
     def delete(self, customer_id):
-        """Xóa khách - cần lấy email trước để xóa bảng email."""
         customer = self.get_by_id(customer_id)
-        if customer:
+        if customer and customer.get("email"):
             self.session.execute(
                 "DELETE FROM customers_by_email WHERE email = %s",
                 (customer['email'],)
             )
-        self.session.execute(self.delete_customer, (customer_id,))
+        c_id = uuid.UUID(str(customer_id)) if isinstance(customer_id, str) else customer_id
+        self.session.execute(self.delete_customer, (c_id,))
 
     def close(self):
         pass
 
-
     def get_by_id_safe(self, customer_id):
-        """Bọc ép kiểu UUID cho API người 2"""
-        c_id = uuid.UUID(str(customer_id)) if isinstance(customer_id, str) else customer_id
-        return self.get_by_id(c_id)
+        return self.get_by_id(customer_id)
 
     def delete_safe(self, customer_id):
-        """Bọc ép kiểu UUID cho API người 2"""
-        c_id = uuid.UUID(str(customer_id)) if isinstance(customer_id, str) else customer_id
-        self.delete(c_id)
+        self.delete(customer_id)
 
     def update_customer(self, customer_id, full_name, phone, id_number=None):
-        """Cập nhật thông tin khách hàng đồng bộ trên cả 2 bảng"""
         c_id = uuid.UUID(str(customer_id)) if isinstance(customer_id, str) else customer_id
         current_data = self.get_by_id(c_id)
         if not current_data:
@@ -104,13 +114,10 @@ class CustomerRepository:
         email = current_data['email']
         created_at = current_data['created_at']
 
-        # Cập nhật bảng customers
         self.session.execute(self.insert_customer, (
             c_id, full_name, email, phone, id_number, created_at, current_data.get("password_hash")
         ))
-
-        # Cập nhật bảng customers_by_email
-        self.session.execute(self.insert_by_email, (
+        self.session.execute(self.update_by_email, (
             email, c_id, full_name, phone, current_data.get("password_hash")
         ))
 

@@ -29,7 +29,7 @@ def to_py_date(val):
 
 def get_session():
     """Tạo hoặc tái sử dụng session kết nối vào keyspace hotel_booking (Singleton Connection Pool)."""
-    global _global_cluster, _global_session, _tables_initialized
+    global _global_cluster, _global_session
 
     if _global_session is not None and not _global_session.is_shutdown:
         return _global_cluster, _global_session
@@ -48,96 +48,6 @@ def get_session():
         """ % KEYSPACE
     )
     session.set_keyspace(KEYSPACE)
-    print(f"[OK] Da ket noi Cassandra - keyspace: {KEYSPACE}")
-
-    if not _tables_initialized:
-        # Khởi tạo bảng 1 lần duy nhất lúc khởi động app
-        session.execute("""
-            CREATE TABLE IF NOT EXISTS rooms_by_hotel (
-                hotel_id uuid,
-                room_id uuid,
-                room_number text,
-                room_type text,
-                price decimal,
-                status text,
-                PRIMARY KEY (hotel_id, room_id)
-            )
-        """)
-        session.execute("""
-            CREATE TABLE IF NOT EXISTS bookings_by_room (
-                room_id uuid,
-                check_in_date date,
-                booking_id uuid,
-                customer_id uuid,
-                check_out_date date,
-                status text,
-                PRIMARY KEY (room_id, check_in_date)
-            )
-        """)
-        session.execute("""
-            CREATE TABLE IF NOT EXISTS bookings_by_customer (
-                customer_id uuid,
-                booking_date timestamp,
-                booking_id uuid,
-                room_id uuid,
-                hotel_id uuid,
-                status text,
-                PRIMARY KEY (customer_id, booking_date)
-            )
-        """)
-        session.execute("""
-            CREATE TABLE IF NOT EXISTS bookings_by_date (
-                booking_date date,
-                hotel_id uuid,
-                booking_id uuid,
-                customer_id uuid,
-                room_id uuid,
-                status text,
-                PRIMARY KEY ((booking_date, hotel_id), booking_id)
-            )
-        """)
-        session.execute("""
-            CREATE TABLE IF NOT EXISTS hotels (
-                hotel_id uuid,
-                name text,
-                address text,
-                city text,
-                phone text,
-                rating decimal,
-                created_at timestamp,
-                PRIMARY KEY (hotel_id)
-            )
-        """)
-        session.execute("""
-            CREATE TABLE IF NOT EXISTS customers (
-                customer_id uuid,
-                full_name text,
-                email text,
-                phone text,
-                id_number text,
-                created_at timestamp,
-                PRIMARY KEY (customer_id)
-            )
-        """)
-        try:
-            session.execute("ALTER TABLE customers ADD password_hash text")
-        except Exception:
-            pass
-        session.execute("""
-            CREATE TABLE IF NOT EXISTS customers_by_email (
-                email text,
-                customer_id uuid,
-                full_name text,
-                phone text,
-                password_hash text,
-                PRIMARY KEY (email)
-            )
-        """)
-        try:
-            session.execute("ALTER TABLE customers_by_email ADD password_hash text")
-        except Exception:
-            pass
-        _tables_initialized = True
 
     _global_session = session
     return _global_cluster, _global_session
